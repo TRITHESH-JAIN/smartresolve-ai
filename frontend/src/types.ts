@@ -97,6 +97,15 @@ export interface RAGResult extends ChatResult {
   }>;
 }
 
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  sourceTicketId: string | null;
+  verified: boolean;
+  verifiedBy: string | null;
+  createdAt: string;
+}
+
 export interface TicketComment {
   id: string;
   ticketId: string;

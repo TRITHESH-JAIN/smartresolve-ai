@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   ChatConversation,
   ChatResult,
+  KnowledgeArticle,
   RAGResult,
   SupportEngineer,
   SupportTeam,
@@ -147,5 +148,13 @@ export const api = {
       "/ai/rag/chat",
       json({ conversationId, message }),
       token
-    )
+    ),
+
+  getKnowledgeArticles: (token: string) =>
+    request<KnowledgeArticle[]>("/knowledge/articles", {}, token),
+
+  createKnowledgeArticle: (
+    token: string,
+    body: { title: string; content: string; sourceTicketId: string | null }
+  ) => request<KnowledgeArticle>("/knowledge/articles", json(body), token)
 };

@@ -95,6 +95,11 @@ input:focus, textarea:focus { border-color: #5e86c2; box-shadow: 0 0 0 3px #5e86
 .empty-state span { color: #6b91c7; font-size: 28px; }
 .empty-state strong { color: #52617a; }
 .empty-state p { margin: 0; font-size: 13px; }
+.knowledge-list { display: grid; gap: 10px; }
+.knowledge-row { padding: 14px; display: flex; justify-content: space-between; gap: 16px; border: 1px solid #e8edf5; border-radius: 10px; background: #fbfdff; }
+.knowledge-row strong { font-size: 13px; }
+.knowledge-row p { margin: 5px 0 0; color: #7d8799; font-size: 12px; }
+.knowledge-row small { color: #94a0b2; font-size: 11px; white-space: nowrap; }
 .chat-page { max-width: 980px; margin: auto; }
 .mode-indicator { padding: 8px 11px; border-radius: 8px; color: #386aa8; background: #e9f1fd; font-size: 11px; font-weight: 700; }
 .chat-panel { min-height: 620px; padding: 0; display: flex; flex-direction: column; overflow: hidden; }

@@ -4,7 +4,7 @@ import type {
   AIAnalysis,
   AuthResponse,
   ChatConversation,
-  ChatResult,
+  KnowledgeArticle,
   RAGResult,
   SupportEngineer,
   SupportTeam,
@@ -12,7 +12,7 @@ import type {
   TicketComment
 } from "./types";
 
-type View = "tickets" | "chat" | "rag";
+type View = "tickets" | "chat" | "rag" | "knowledge";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const authStorageKey = "smartresolve.auth";
@@ -47,6 +47,7 @@ function App() {
     localStorage.removeItem(authStorageKey);
     setAuth(null);
   };
+  const canManageKnowledge = auth.role === "ADMIN" || auth.role === "SUPPORT_ENGINEER";
 
   return (
     <div className="app-shell">
@@ -79,6 +80,9 @@ function App() {
           <button className={view === "rag" ? "nav-button active" : "nav-button"} onClick={() => setView("rag")}>
             <span>⌁</span> Knowledge chat
           </button>
+          {canManageKnowledge && <button className={view === "knowledge" ? "nav-button active" : "nav-button"} onClick={() => setView("knowledge")}>
+            <span>＋</span> Manage knowledge
+          </button>}
           <div className="sidebar-note">
             <strong>Need help?</strong>
             <span>Ask the AI assistant or create a ticket for your support team.</span>
@@ -88,6 +92,7 @@ function App() {
           {view === "tickets" && <TicketsView auth={auth} />}
           {view === "chat" && <ChatView auth={auth} rag={false} />}
           {view === "rag" && <ChatView auth={auth} rag />}
+          {view === "knowledge" && canManageKnowledge && <KnowledgeView auth={auth} />}
         </main>
       </div>
     </div>
@@ -500,6 +505,73 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
   return <span className={`status-pill ${status.toLowerCase()}`}>{status.replace("_", " ")}</span>;
 }
 
+function KnowledgeView({ auth }: { auth: AuthResponse }) {
+  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [sourceTicketId, setSourceTicketId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const loadArticles = async () => {
+    try {
+      setArticles(await api.getKnowledgeArticles(auth.token));
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : "Could not load knowledge articles.");
+    }
+  };
+
+  useEffect(() => {
+    void loadArticles();
+  }, [auth.token]);
+
+  async function createArticle(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const article = await api.createKnowledgeArticle(auth.token, {
+        title: title.trim(),
+        content: content.trim(),
+        sourceTicketId: sourceTicketId.trim() || null
+      });
+      setArticles((current) => [article, ...current]);
+      setTitle("");
+      setContent("");
+      setSourceTicketId("");
+      setShowForm(false);
+      setNotice("Knowledge article added and indexed for Knowledge chat.");
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : "Could not add the knowledge article.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div>
+    <div className="page-heading">
+      <div><p className="eyebrow">Admin and support tools</p><h1>Manage knowledge</h1><p className="muted">Add verified solutions that employees can search in Knowledge chat.</p></div>
+      <button className="primary-button" onClick={() => setShowForm((current) => !current)}>＋ Add article</button>
+    </div>
+    {error && <div className="error-banner">{error}</div>}
+    {notice && <div className="success-banner">{notice}</div>}
+    {showForm && <form className="panel ticket-form" onSubmit={createArticle}>
+      <div className="panel-heading"><div><h2>Add verified knowledge</h2><p className="muted">Write the solution, not just a question or prompt.</p></div><button type="button" className="icon-button" onClick={() => setShowForm(false)}>×</button></div>
+      <label>Article title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Company VPN troubleshooting" required maxLength={200} /></label>
+      <label>Verified solution<textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Describe the verified steps an employee should follow..." required maxLength={10000} rows={7} /></label>
+      <label>Resolved ticket ID <span className="optional">(optional)</span><input value={sourceTicketId} onChange={(event) => setSourceTicketId(event.target.value)} placeholder="UUID of a resolved or closed ticket" /></label>
+      <button className="primary-button" disabled={busy}>{busy ? "Adding..." : "Add and index article"}</button>
+    </form>}
+    <section className="panel">
+      <div className="panel-heading"><div><h2>Verified articles</h2><p className="muted">{articles.length} article{articles.length === 1 ? "" : "s"} available to Knowledge chat.</p></div><button className="link-button" onClick={() => void loadArticles()}>Refresh</button></div>
+      {articles.length === 0 ? <div className="empty-state"><span>⌁</span><strong>No knowledge articles yet</strong><p>Add a verified solution for employees to use.</p></div> : <div className="knowledge-list">{articles.map((article) => <div className="knowledge-row" key={article.id}><div><strong>{article.title}</strong><p>{article.verifiedBy ? `Verified by ${article.verifiedBy}` : "Verified article"}</p></div><small>{new Date(article.createdAt).toLocaleDateString()}</small></div>)}</div>}
+    </section>
+  </div>;
+}
+
 function ChatView({ auth, rag }: { auth: AuthResponse; rag: boolean }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -524,12 +596,12 @@ function ChatView({ auth, rag }: { auth: AuthResponse; rag: boolean }) {
     setMessages((current) => [...current, { role: "user", content: currentMessage }]);
     setBusy(true);
     try {
-      const result: ChatResult | RAGResult = rag
+      const result = rag
         ? await api.ragChat(auth.token, conversationId, currentMessage)
         : await api.chat(auth.token, conversationId, currentMessage);
       setConversationId(result.conversationId);
       setMessages((current) => [...current, { role: "assistant", content: result.answer }]);
-      if (rag && "sources" in result) setSources(result.sources);
+      if (rag) setSources((result as RAGResult).sources);
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : "The AI assistant is unavailable.");
     } finally {
