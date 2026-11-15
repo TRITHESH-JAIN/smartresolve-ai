@@ -41,13 +41,20 @@ OLLAMA_BASE_URL
 JWT_SECRET
 ```
 
-Create an untracked `.env` file for Docker Compose:
+Create an untracked `.env` file for Docker Compose by copying
+`.env.example` and replacing the placeholder values:
 
-```text
-DB_NAME=smartresolve_db
-DB_USERNAME=smartresolve
-DB_PASSWORD=replace-with-a-local-password
-JWT_SECRET=replace-with-a-long-random-secret
+```powershell
+Copy-Item .env.example .env
+```
+
+`JWT_SECRET` must be Base64-encoded and contain at least 32 bytes because it
+is used as an HMAC signing key. Generate one with:
+
+```powershell
+[Convert]::ToBase64String((1..32 | ForEach-Object {
+  [byte](Get-Random -Minimum 0 -Maximum 256)
+}))
 ```
 
 Never commit production credentials or JWT secrets.
@@ -59,6 +66,18 @@ Start PostgreSQL with pgvector:
 ```powershell
 docker compose up -d postgres
 ```
+
+For a local Maven run, Docker Compose's `.env` file is not automatically
+exported to the Java process. Set the required variables in the same
+PowerShell session before starting the application:
+
+```powershell
+$env:DB_PASSWORD = "your-local-database-password"
+$env:JWT_SECRET = "your-base64-encoded-32-byte-key"
+```
+
+If `JWT_SECRET` is missing, startup fails while creating `JwtService` with an
+`UnsatisfiedDependencyException`.
 
 Compile:
 
