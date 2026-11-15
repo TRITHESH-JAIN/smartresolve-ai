@@ -257,7 +257,7 @@ public class TicketService {
             String email
     ) {
         User currentUser = getUser(email);
-        ensureSupportOrAdmin(currentUser);
+        ensureAdmin(currentUser);
         Ticket ticket = getTicketEntity(ticketId);
         User engineer = userRepository.findById(request.assignedEngineerId())
                 .orElseThrow(() -> new IllegalArgumentException("Engineer not found"));
@@ -372,6 +372,13 @@ public class TicketService {
                 && user.getRole() != Role.ADMIN) {
             throw new AccessDeniedException(
                     "You do not have permission to perform this action");
+        }
+    }
+
+    private void ensureAdmin(User user) {
+        if (user.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException(
+                    "Only administrators can assign tickets");
         }
     }
 

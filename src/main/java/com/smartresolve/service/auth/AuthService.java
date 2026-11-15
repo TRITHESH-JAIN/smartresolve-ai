@@ -3,8 +3,10 @@ package com.smartresolve.service.auth;
 import com.smartresolve.dto.request.LoginRequest;
 import com.smartresolve.dto.request.RegisterRequest;
 import com.smartresolve.dto.response.AuthResponse;
+import com.smartresolve.entity.SupportTeam;
 import com.smartresolve.entity.User;
 import com.smartresolve.enums.Role;
+import com.smartresolve.repository.SupportTeamRepository;
 import com.smartresolve.repository.UserRepository;
 import com.smartresolve.security.JwtService;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,17 +22,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final SupportTeamRepository supportTeamRepository;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtService jwtService
+            JwtService jwtService,
+            SupportTeamRepository supportTeamRepository
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.supportTeamRepository = supportTeamRepository;
     }
 
     @Transactional
@@ -44,11 +49,15 @@ public class AuthService {
             );
         }
 
+        Role role = request.role() == null ? Role.EMPLOYEE : request.role();
+        SupportTeam team = resolveTeam(role, request.teamId());
+
         User user = User.builder()
                 .fullName(request.fullName().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.EMPLOYEE)
+                .role(role)
+                .team(team)
                 .active(true)
                 .build();
 
@@ -68,10 +77,13 @@ public class AuthService {
                 savedUser.getId(),
                 savedUser.getFullName(),
                 savedUser.getEmail(),
-                savedUser.getRole()
+                savedUser.getRole(),
+                savedUser.getTeam() == null ? null : savedUser.getTeam().getId(),
+                savedUser.getTeam() == null ? null : savedUser.getTeam().getTeamName()
         );
     }
 
+    @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
 
         String email = request.email().trim().toLowerCase();
@@ -103,7 +115,33 @@ public class AuthService {
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
-                user.getRole()
+                user.getRole(),
+                user.getTeam() == null ? null : user.getTeam().getId(),
+                user.getTeam() == null ? null : user.getTeam().getTeamName()
         );
+    }
+
+    private SupportTeam resolveTeam(Role role, java.util.UUID teamId) {
+        if (role != Role.SUPPORT_ENGINEER) {
+            if (teamId != null) {
+                throw new IllegalArgumentException(
+                        "Only support engineers can be assigned to a team");
+            }
+            return null;
+        }
+
+        if (teamId == null) {
+            throw new IllegalArgumentException(
+                    "teamId is required when role is SUPPORT_ENGINEER");
+        }
+
+        SupportTeam team = supportTeamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Support team not found"));
+        if (!team.isActive()) {
+            throw new IllegalArgumentException(
+                    "Support team is inactive");
+        }
+        return team;
     }
 }

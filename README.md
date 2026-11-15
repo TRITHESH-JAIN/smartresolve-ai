@@ -14,6 +14,8 @@ Spring Security, PostgreSQL, pgvector, Spring AI, Ollama, and Docker.
 - RAG answers grounded in verified knowledge sources.
 - Read-only AI tools for similar tickets, team lookup, and ticket status.
 - Role-scoped dashboards and Swagger/OpenAPI documentation.
+- Vite React frontend for employee authentication, tickets, AI analysis, normal
+  AI chat, and RAG chat.
 
 ## Requirements
 
@@ -102,6 +104,7 @@ Application URLs:
 | Area | Base endpoints |
 |---|---|
 | Authentication | `/api/auth/register`, `/api/auth/login` |
+| Support directory | `/api/support/teams`, `/api/support/engineers` |
 | Tickets | `/api/tickets` |
 | Ticket search | `/api/tickets/search` |
 | AI analysis | `/api/ai/analyze/{ticketId}` |
@@ -111,8 +114,38 @@ Application URLs:
 | Knowledge base | `/api/knowledge/articles` |
 | Dashboard | `/api/dashboard` |
 
+## React frontend
+
+The employee-facing React application is in [`frontend/`](frontend/).
+It requires Node.js 20+ and the Spring Boot API running on
+`http://localhost:8080`.
+
+```powershell
+Set-Location frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. Vite proxies `/api` requests to the Spring Boot
+API during local development. See [`frontend/README.md`](frontend/README.md)
+for the supported employee flow and production API configuration.
+
 Authentication endpoints are public. Other endpoints require a JWT bearer
 token and apply role/ownership checks.
+
+Registration accepts `role` and `teamId`. `teamId` is required for
+`SUPPORT_ENGINEER` accounts and must be null for employees and admins. The
+application seeds these fixed active support teams on startup:
+
+| Team | ID |
+|---|---|
+| Database Support | `55e9ad25-b8b6-45f5-a622-9ab381f1f823` |
+| Network Support | `5d4bbcb8-8a96-4ee1-9bea-5732a0e03b2d` |
+| Software Support | `be1b57ce-f8ae-493f-a516-90e8e7c1bbe4` |
+
+For production, privileged registration should be restricted to an
+administrator-controlled workflow. The role input is enabled here for local
+development and testing.
 
 ## Testing
 
