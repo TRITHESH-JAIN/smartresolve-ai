@@ -56,6 +56,8 @@ export interface Ticket {
   updatedAt: string;
   resolvedAt: string | null;
   closedAt: string | null;
+  supportTeamRating: number | null;
+  supportTeamRatingFeedback: string | null;
 }
 
 export interface TicketPage {
@@ -66,6 +68,13 @@ export interface TicketPage {
   totalPages: number;
   first: boolean;
   last: boolean;
+}
+
+export interface TicketCategory {
+  id: string;
+  categoryName: string;
+  description: string | null;
+  active: boolean;
 }
 
 export interface AIAnalysis {

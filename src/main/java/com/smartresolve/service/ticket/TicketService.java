@@ -28,6 +28,7 @@ public class TicketService {
     private final TicketCommentRepository commentRepository;
     private final TicketHistoryRepository historyRepository;
     private final TicketStatusValidator statusValidator;
+    private final SupportTeamRatingRepository supportTeamRatingRepository;
 
     public TicketService(
             TicketRepository ticketRepository,
@@ -36,7 +37,8 @@ public class TicketService {
             SupportTeamRepository teamRepository,
             TicketCommentRepository commentRepository,
             TicketHistoryRepository historyRepository,
-            TicketStatusValidator statusValidator
+            TicketStatusValidator statusValidator,
+            SupportTeamRatingRepository supportTeamRatingRepository
     ) {
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
@@ -45,6 +47,7 @@ public class TicketService {
         this.commentRepository = commentRepository;
         this.historyRepository = historyRepository;
         this.statusValidator = statusValidator;
+        this.supportTeamRatingRepository = supportTeamRatingRepository;
     }
 
     @Transactional
@@ -116,7 +119,8 @@ public class TicketService {
             int size,
             TicketStatus status,
             TicketPriority priority,
-            String keyword
+            String keyword,
+            UUID categoryId
     ) {
         User user = getUser(email);
 
@@ -135,7 +139,10 @@ public class TicketService {
         Specification<Ticket> specification =
                 Specification.where(TicketSpecification.status(status))
                         .and(TicketSpecification.priority(priority))
-                        .and(TicketSpecification.search(keyword));
+                        .and(TicketSpecification.search(keyword))
+                        .and((root, query, cb) -> categoryId == null
+                                ? cb.conjunction()
+                                : cb.equal(root.get("category").get("id"), categoryId));
 
         if (user.getRole() == Role.EMPLOYEE) {
             specification = specification.and(
@@ -248,6 +255,48 @@ public class TicketService {
         saveHistory(savedTicket, "STATUS_CHANGED", "status",
                 oldStatus.name(), newStatus.name(), currentUser, request.remarks());
         return mapTicket(savedTicket);
+    }
+
+    @Transactional
+    public TicketResponse rateSupportTeam(
+            UUID ticketId,
+            RateSupportTeamRequest request,
+            String email
+    ) {
+        User employee = getUser(email);
+        Ticket ticket = getTicketEntity(ticketId);
+
+        if (!ticket.getEmployee().getId().equals(employee.getId())) {
+            throw new AccessDeniedException(
+                    "Only the ticket employee can rate the support team");
+        }
+        if (ticket.getStatus() != TicketStatus.RESOLVED
+                && ticket.getStatus() != TicketStatus.CLOSED) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A support team can be rated only after the ticket is resolved or closed"
+            );
+        }
+        if (ticket.getTeam() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "This ticket has no assigned support team to rate"
+            );
+        }
+
+        SupportTeamRating rating = supportTeamRatingRepository
+                .findByTicket_Id(ticketId)
+                .orElseGet(() -> SupportTeamRating.builder()
+                        .ticket(ticket)
+                        .supportTeam(ticket.getTeam())
+                        .employee(employee)
+                        .build());
+        rating.setRating(request.rating());
+        rating.setFeedback(request.feedback() == null
+                ? null : request.feedback().trim());
+        supportTeamRatingRepository.save(rating);
+        ticket.setSupportTeamRating(rating);
+        return mapTicket(ticket);
     }
 
     @Transactional
@@ -423,7 +472,11 @@ public class TicketService {
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt(),
                 ticket.getResolvedAt(),
-                ticket.getClosedAt()
+                ticket.getClosedAt(),
+                ticket.getSupportTeamRating() == null
+                        ? null : ticket.getSupportTeamRating().getRating(),
+                ticket.getSupportTeamRating() == null
+                        ? null : ticket.getSupportTeamRating().getFeedback()
         );
     }
 

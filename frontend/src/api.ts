@@ -8,6 +8,7 @@ import type {
   SupportEngineer,
   SupportTeam,
   Ticket,
+  TicketCategory,
   TicketComment,
   TicketPage
 } from "./types";
@@ -84,8 +85,23 @@ export const api = {
       token
     ),
 
-  getTickets: (token: string) =>
-    request<TicketPage>("/tickets/search?page=0&size=50", {}, token),
+  getTickets: (
+    token: string,
+    filters: {
+      status?: Ticket["status"];
+      priority?: Ticket["priority"];
+      categoryId?: string;
+    } = {}
+  ) => {
+    const params = new URLSearchParams({ page: "0", size: "50" });
+    if (filters.status) params.set("status", filters.status);
+    if (filters.priority) params.set("priority", filters.priority);
+    if (filters.categoryId) params.set("categoryId", filters.categoryId);
+    return request<TicketPage>(`/tickets/search?${params.toString()}`, {}, token);
+  },
+
+  getTicketCategories: (token: string) =>
+    request<TicketCategory[]>("/ticket-categories", {}, token),
 
   createTicket: (
     token: string,
@@ -123,6 +139,12 @@ export const api = {
     method: "PATCH",
     body: JSON.stringify(body)
   }, token),
+
+  rateSupportTeam: (
+    token: string,
+    ticketId: string,
+    body: { rating: number; feedback: string }
+  ) => request<Ticket>(`/tickets/${ticketId}/rating`, json(body), token),
 
   addComment: (
     token: string,

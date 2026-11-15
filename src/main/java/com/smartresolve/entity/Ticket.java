@@ -75,6 +75,9 @@ public class Ticket {
     @Version
     private Long version;
 
+    @OneToOne(mappedBy = "ticket", fetch = FetchType.LAZY)
+    private SupportTeamRating supportTeamRating;
+
     @PrePersist
     public void onCreate() {
         createdAt = LocalDateTime.now();

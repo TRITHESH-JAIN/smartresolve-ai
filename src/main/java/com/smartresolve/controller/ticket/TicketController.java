@@ -64,6 +64,7 @@ public class TicketController {
             @RequestParam(required = false) TicketStatus status,
             @RequestParam(required = false) TicketPriority priority,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) UUID categoryId,
             Authentication authentication
     ) {
         return ticketService.getTicketsPaginated(
@@ -72,7 +73,8 @@ public class TicketController {
                 size,
                 status,
                 priority,
-                keyword
+                keyword,
+                categoryId
         );
     }
 
@@ -102,6 +104,16 @@ public class TicketController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return ResponseEntity.ok(ticketService.updateStatus(
+                ticketId, request, userDetails.getUsername()));
+    }
+
+    @PostMapping("/{ticketId}/rating")
+    public ResponseEntity<TicketResponse> rateSupportTeam(
+            @PathVariable UUID ticketId,
+            @Valid @RequestBody RateSupportTeamRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(ticketService.rateSupportTeam(
                 ticketId, request, userDetails.getUsername()));
     }
 

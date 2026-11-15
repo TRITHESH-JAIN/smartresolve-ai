@@ -23,6 +23,8 @@ public record TicketResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         LocalDateTime resolvedAt,
-        LocalDateTime closedAt
+        LocalDateTime closedAt,
+        Integer supportTeamRating,
+        String supportTeamRatingFeedback
 ) {
 }

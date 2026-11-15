@@ -94,6 +94,7 @@ POST /api/auth/login
 GET  /api/support/teams
 GET  /api/support/engineers
 GET  /api/support/teams/{teamId}/engineers
+GET  /api/ticket-categories
 GET  /api/tickets/search?page=0&size=50
 POST /api/tickets
 POST /api/ai/analyze/{ticketId}
@@ -101,11 +102,22 @@ GET  /api/ai/analyze/{ticketId}
 POST /api/ai/recommendations/{analysisId}/accept
 POST /api/tickets/{ticketId}/assign
 PATCH /api/tickets/{ticketId}/status
+POST /api/tickets/{ticketId}/rating
 POST /api/tickets/{ticketId}/comments
 GET  /api/tickets/{ticketId}/comments
 GET  /api/ai/chat/conversations
 POST /api/ai/chat
 POST /api/ai/rag/chat
+GET  /api/knowledge/articles
+POST /api/knowledge/articles
+```
+
+Admins and support engineers can filter ticket searches by `status` and
+`priority`. Admins can also provide `categoryId`:
+
+```text
+GET /api/tickets/search?page=0&size=50&status=OPEN&priority=HIGH
+GET /api/tickets/search?page=0&size=50&categoryId=CATEGORY_UUID
 ```
 
 The frontend sends the JWT as:
@@ -113,6 +125,11 @@ The frontend sends the JWT as:
 ```text
 Authorization: Bearer <token>
 ```
+
+Employees can rate the assigned support team from a ticket after it reaches
+`RESOLVED` or `CLOSED`. Ratings use a 1–5 scale and may include optional
+feedback. Ratings are stored in the `support_team_ratings` database table and
+can be updated by the employee who submitted them.
 
 ## Employee test flow
 

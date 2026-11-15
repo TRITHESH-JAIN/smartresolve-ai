@@ -9,6 +9,7 @@ import type {
   SupportEngineer,
   SupportTeam,
   Ticket,
+  TicketCategory,
   TicketComment
 } from "./types";
 
@@ -205,10 +206,18 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
   const [assignmentRemarks, setAssignmentRemarks] = useState("");
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [status, setStatus] = useState<Ticket["status"]>("NEW");
+  const [filterStatus, setFilterStatus] = useState<Ticket["status"] | "">("");
+  const [filterPriority, setFilterPriority] = useState<Ticket["priority"] | "">("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [statusRemarks, setStatusRemarks] = useState("");
   const [commentMessage, setCommentMessage] = useState("");
   const [internalNote, setInternalNote] = useState(false);
+  const [teamRating, setTeamRating] = useState(0);
+  const [ratingFeedback, setRatingFeedback] = useState("");
   const canManageTickets = auth.role === "ADMIN" || auth.role === "SUPPORT_ENGINEER";
+  const canFilterTickets = canManageTickets;
+  const canFilterCategories = auth.role === "ADMIN";
   const canUpdateTicketStatus = auth.role === "SUPPORT_ENGINEER";
   const canAssignTickets = auth.role === "ADMIN";
 
@@ -225,15 +234,33 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
     });
   }, [auth.token, canManageTickets]);
 
-  const loadTickets = async () => {
+  useEffect(() => {
+    if (!canFilterCategories) return;
+    api.getTicketCategories(auth.token).then(setCategories).catch((reason) => {
+      setError(reason instanceof ApiError ? reason.message : "Could not load ticket categories.");
+    });
+  }, [auth.token, canFilterCategories]);
+
+  const loadTickets = async (filters = {
+    status: filterStatus || undefined,
+    priority: filterPriority || undefined,
+    categoryId: filterCategoryId || undefined
+  }) => {
     try {
-      const page = await api.getTickets(auth.token);
+      const page = await api.getTickets(auth.token, canFilterTickets ? filters : {});
       setTickets(page.content);
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : "Could not load tickets.");
     }
   };
-  useEffect(() => { void loadTickets(); }, []);
+  useEffect(() => { void loadTickets(); }, [auth.token]);
+
+  function clearTicketFilters() {
+    setFilterStatus("");
+    setFilterPriority("");
+    setFilterCategoryId("");
+    void loadTickets({ status: undefined, priority: undefined, categoryId: undefined });
+  }
 
   async function selectTicket(ticket: Ticket) {
     setSelected(ticket);
@@ -402,6 +429,29 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
     }
   }
 
+  async function rateSupportTeam(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return;
+    const rating = teamRating || selected.supportTeamRating || 0;
+    if (rating < 1) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.rateSupportTeam(auth.token, selected.id, {
+        rating,
+        feedback: ratingFeedback
+      });
+      setSelected(updated);
+      setTickets((current) =>
+        current.map((ticket) => ticket.id === updated.id ? updated : ticket)
+      );
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : "Could not save the support team rating.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <div className="page-heading">
@@ -418,6 +468,26 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
       <div className="ticket-layout">
         <section className="panel ticket-list">
           <div className="panel-heading"><div><h2>Recent tickets</h2><p className="muted">{tickets.length} request{tickets.length === 1 ? "" : "s"}</p></div><button className="link-button" onClick={() => void loadTickets()}>Refresh</button></div>
+          {canFilterTickets && <form className="ticket-filters" onSubmit={(event) => { event.preventDefault(); void loadTickets(); }}>
+            <label>Status<select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as Ticket["status"] | "")}>
+              <option value="">All statuses</option>
+              <option value="OPEN">Open</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="RESOLVED">Resolved</option>
+            </select></label>
+            <label>Priority<select value={filterPriority} onChange={(event) => setFilterPriority(event.target.value as Ticket["priority"] | "")}>
+              <option value="">All priorities</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="CRITICAL">Critical</option>
+            </select></label>
+            {canFilterCategories && <label>Category<select value={filterCategoryId} onChange={(event) => setFilterCategoryId(event.target.value)}>
+              <option value="">All categories</option>
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.categoryName}</option>)}
+            </select></label>}
+            <div className="ticket-filter-actions"><button className="secondary-button" type="submit">Apply filters</button><button className="link-button" type="button" onClick={clearTicketFilters}>Clear</button></div>
+          </form>}
           {tickets.length === 0 ? <div className="empty-state"><span>◌</span><strong>No tickets yet</strong><p>Create your first support request to get started.</p></div> : tickets.map((ticket) => <button key={ticket.id} className={selected?.id === ticket.id ? "ticket-row selected" : "ticket-row"} onClick={() => void selectTicket(ticket)}>
             <div className="ticket-row-top"><strong>{ticket.title}</strong><StatusBadge status={ticket.status} /></div>
             <p>{ticket.description}</p><small>{new Date(ticket.createdAt).toLocaleString()} · {ticket.priority}</small>
@@ -460,6 +530,17 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
               </select></label><label>Remarks<input value={statusRemarks} onChange={(event) => setStatusRemarks(event.target.value)} maxLength={1000} placeholder="Resolution or progress note" /></label></div>
               <button className="primary-button" disabled={busy}>{busy ? "Updating..." : "Update status"}</button>
             </form>}
+            {auth.role === "EMPLOYEE"
+              && (selected.status === "RESOLVED" || selected.status === "CLOSED")
+              && selected.teamId
+              && <form className="rating-card" onSubmit={rateSupportTeam}>
+                <div><p className="eyebrow">Support team feedback</p><h3>Rate your support experience</h3><p className="muted">Your rating helps us improve the support team.</p></div>
+                <div className="rating-stars" role="radiogroup" aria-label="Support team rating">
+                  {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className={value <= (teamRating || selected.supportTeamRating || 0) ? "rating-star selected" : "rating-star"} onClick={() => setTeamRating(value)} aria-label={`${value} star${value === 1 ? "" : "s"}`}>★</button>)}
+                </div>
+                <textarea value={ratingFeedback || selected.supportTeamRatingFeedback || ""} onChange={(event) => setRatingFeedback(event.target.value)} placeholder="Optional feedback" maxLength={2000} rows={3} />
+                <button className="primary-button" disabled={busy || !(teamRating || selected.supportTeamRating)}>{busy ? "Saving..." : selected.supportTeamRating ? "Update rating" : "Submit rating"}</button>
+              </form>}
             <section className="comments-card">
               <div className="panel-heading"><div><p className="eyebrow">Ticket communication</p><h3>Comments and visibility</h3></div><button type="button" className="link-button" onClick={() => void selectTicket(selected)}>Refresh</button></div>
               <div className="comment-list">{comments.length === 0 ? <p className="muted">No comments yet.</p> : comments.map((comment) => <div className="comment-item" key={comment.id}><div><strong>{comment.userName}</strong><small>{new Date(comment.createdAt).toLocaleString()} {comment.internalNote ? "· Internal note" : ""}</small></div><p>{comment.message}</p></div>)}</div>
