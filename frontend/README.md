@@ -129,7 +129,7 @@ Authorization: Bearer <token>
 Employees can rate the assigned support team from a ticket after it reaches
 `RESOLVED` or `CLOSED`. Ratings use a 1–5 scale and may include optional
 feedback. Ratings are stored in the `support_team_ratings` database table and
-can be updated by the employee who submitted them.
+can be submitted only once per ticket.
 
 ## Employee test flow
 

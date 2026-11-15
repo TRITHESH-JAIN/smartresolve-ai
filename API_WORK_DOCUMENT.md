@@ -424,6 +424,9 @@ created_at
 updated_at
 ```
 
+Each ticket can be rated only once. A second rating attempt returns HTTP 409
+with the message `This ticket has already been rated`.
+
 ## 3. Admin flow
 
 ### 3.1 Load and filter all tickets

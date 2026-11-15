@@ -284,13 +284,18 @@ public class TicketService {
             );
         }
 
-        SupportTeamRating rating = supportTeamRatingRepository
-                .findByTicket_Id(ticketId)
-                .orElseGet(() -> SupportTeamRating.builder()
-                        .ticket(ticket)
-                        .supportTeam(ticket.getTeam())
-                        .employee(employee)
-                        .build());
+        if (supportTeamRatingRepository.findByTicket_Id(ticketId).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This ticket has already been rated"
+            );
+        }
+
+        SupportTeamRating rating = SupportTeamRating.builder()
+                .ticket(ticket)
+                .supportTeam(ticket.getTeam())
+                .employee(employee)
+                .build();
         rating.setRating(request.rating());
         rating.setFeedback(request.feedback() == null
                 ? null : request.feedback().trim());

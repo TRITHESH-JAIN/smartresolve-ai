@@ -533,13 +533,25 @@ function TicketsView({ auth }: { auth: AuthResponse }) {
             {auth.role === "EMPLOYEE"
               && (selected.status === "RESOLVED" || selected.status === "CLOSED")
               && selected.teamId
+              && selected.supportTeamRating
+              && <div className="rating-card">
+                <div><p className="eyebrow">Support team feedback</p><h3>Thank you for your feedback</h3><p className="muted">You have already rated this support team.</p></div>
+                <div className="rating-stars" aria-label={`Submitted rating: ${selected.supportTeamRating} out of 5`}>
+                  {[1, 2, 3, 4, 5].map((value) => <span key={value} className={value <= selected.supportTeamRating! ? "rating-star selected" : "rating-star"}>★</span>)}
+                </div>
+                {selected.supportTeamRatingFeedback && <p className="rating-feedback">{selected.supportTeamRatingFeedback}</p>}
+              </div>}
+            {auth.role === "EMPLOYEE"
+              && (selected.status === "RESOLVED" || selected.status === "CLOSED")
+              && selected.teamId
+              && !selected.supportTeamRating
               && <form className="rating-card" onSubmit={rateSupportTeam}>
                 <div><p className="eyebrow">Support team feedback</p><h3>Rate your support experience</h3><p className="muted">Your rating helps us improve the support team.</p></div>
                 <div className="rating-stars" role="radiogroup" aria-label="Support team rating">
-                  {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className={value <= (teamRating || selected.supportTeamRating || 0) ? "rating-star selected" : "rating-star"} onClick={() => setTeamRating(value)} aria-label={`${value} star${value === 1 ? "" : "s"}`}>★</button>)}
+                  {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className={value <= teamRating ? "rating-star selected" : "rating-star"} onClick={() => setTeamRating(value)} aria-label={`${value} star${value === 1 ? "" : "s"}`}>★</button>)}
                 </div>
-                <textarea value={ratingFeedback || selected.supportTeamRatingFeedback || ""} onChange={(event) => setRatingFeedback(event.target.value)} placeholder="Optional feedback" maxLength={2000} rows={3} />
-                <button className="primary-button" disabled={busy || !(teamRating || selected.supportTeamRating)}>{busy ? "Saving..." : selected.supportTeamRating ? "Update rating" : "Submit rating"}</button>
+                <textarea value={ratingFeedback} onChange={(event) => setRatingFeedback(event.target.value)} placeholder="Optional feedback" maxLength={2000} rows={3} />
+                <button className="primary-button" disabled={busy || !teamRating}>{busy ? "Saving..." : "Submit rating"}</button>
               </form>}
             <section className="comments-card">
               <div className="panel-heading"><div><p className="eyebrow">Ticket communication</p><h3>Comments and visibility</h3></div><button type="button" className="link-button" onClick={() => void selectTicket(selected)}>Refresh</button></div>

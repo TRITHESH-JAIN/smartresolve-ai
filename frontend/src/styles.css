@@ -91,6 +91,7 @@ select:focus { border-color: #5e86c2; box-shadow: 0 0 0 3px #5e86c218; }
 .rating-stars { display: flex; gap: 5px; }
 .rating-star { padding: 3px; border: 0; color: #c5ccd7; background: transparent; font-size: 30px; line-height: 1; }
 .rating-star:hover, .rating-star.selected { color: #e2a72d; }
+.rating-feedback { margin: 0; padding: 10px 12px; color: #59667b; background: #fff; border-radius: 8px; font-size: 13px; white-space: pre-wrap; }
 .inline-fields { display: grid; grid-template-columns: .7fr 1.3fr; gap: 12px; }
 .comments-card .panel-heading { padding: 0; margin-bottom: 0; }
 .comments-card .panel-heading h3 { margin-top: 2px; }

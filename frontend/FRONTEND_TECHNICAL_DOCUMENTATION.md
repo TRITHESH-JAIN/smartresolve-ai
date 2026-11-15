@@ -426,7 +426,7 @@ POST /api/tickets/{ticketId}/rating
 Employees can submit a 1–5 rating with optional feedback after their ticket is
 `RESOLVED` or `CLOSED`. The rating is stored in the
 `support_team_ratings` table and linked to the ticket, employee, and support
-team. Submitting the same ticket again updates the employee's existing rating.
+team. Each ticket can be rated only once.
 
 Example request:
 
