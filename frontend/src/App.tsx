@@ -32,6 +32,34 @@ function readAuth(): AuthResponse | null {
 function App() {
   const [auth, setAuth] = useState<AuthResponse | null>(readAuth);
   const [view, setView] = useState<View>("tickets");
+  const [authChecked, setAuthChecked] = useState(auth === null);
+
+  useEffect(() => {
+    if (!auth) {
+      setAuthChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    void api.getTickets(auth.token).then(() => {
+      if (!cancelled) setAuthChecked(true);
+    }).catch((reason) => {
+      if (cancelled) return;
+      if (reason instanceof ApiError && (reason.status === 401 || reason.status === 403)) {
+        localStorage.removeItem(authStorageKey);
+        setAuth(null);
+      }
+      setAuthChecked(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth]);
+
+  if (!authChecked) {
+    return <div className="auth-loading">Checking your session...</div>;
+  }
 
   if (!auth) {
     return (
@@ -113,6 +141,18 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthResponse)
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    setEmail("");
+    setPassword("");
+
+    const clearAutofill = window.requestAnimationFrame(() => {
+      setEmail("");
+      setPassword("");
+    });
+
+    return () => window.cancelAnimationFrame(clearAutofill);
+  }, []);
+
+  useEffect(() => {
     if (!registerMode) return;
     void api.getSupportTeams().then(setTeams).catch(() => {
       setError("Could not load support teams.");
@@ -165,10 +205,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthResponse)
         <p className="muted">{registerMode ? "Create an employee account to raise and track support requests." : "Use your SmartResolve credentials to continue."}</p>
         {error && <div className="error-banner">{error}</div>}
         {notice && <div className="success-banner">{notice}</div>}
-        <form onSubmit={submit} className="stack-form">
-          {registerMode && <label>Full name<input value={fullName} onChange={(event) => setFullName(event.target.value)} required maxLength={100} /></label>}
-          <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-          <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} /></label>
+        <form onSubmit={submit} className="stack-form" autoComplete="off">
+          {registerMode && <label>Full name<input name="fullName" value={fullName} onChange={(event) => setFullName(event.target.value)} required maxLength={100} placeholder="Enter your full name" autoComplete="off" readOnly onFocus={(event) => event.currentTarget.removeAttribute("readOnly")} /></label>}
+          <label>Email<input name="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="Enter your email" autoComplete="off" readOnly onFocus={(event) => event.currentTarget.removeAttribute("readOnly")} /></label>
+          <label>Password<input name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} placeholder="Enter your password" autoComplete="off" readOnly onFocus={(event) => event.currentTarget.removeAttribute("readOnly")} /></label>
           {registerMode && <label>Role<select value={role} onChange={(event) => { setRole(event.target.value as typeof role); if (event.target.value !== "SUPPORT_ENGINEER") setTeamId(""); }}>
             <option value="EMPLOYEE">Employee</option>
             <option value="SUPPORT_ENGINEER">Support engineer</option>
