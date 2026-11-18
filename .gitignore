@@ -35,3 +35,5 @@ build/
 .env
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
+API_WORK_DOCUMENT.md
